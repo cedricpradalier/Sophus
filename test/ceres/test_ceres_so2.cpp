@@ -69,6 +69,8 @@ int main(int, char **) {
   Sophus::LieGroupCeresTests<Sophus::SO2> test(so2_vec, point_vec);
   test.testAll();
 
+#if 0
+  // Example code to plot the interpolated spline
   std::shared_ptr<Sophus::BasisSpline<SO2d>> so2_spline = test.testSpline(6);
   std::ofstream control("ctrl_pts", std::ofstream::out);
   for (size_t i=0;i<so2_vec.size();i++) {
@@ -81,6 +83,7 @@ int main(int, char **) {
       inter << t << " " << g.log() << std::endl;
   }
   inter.close();
+#endif
 
   return 0;
 }

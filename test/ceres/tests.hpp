@@ -238,7 +238,6 @@ struct LieGroupCeresTests {
 
   bool testAll() {
     bool passed = true;
-#if 0
     for (size_t i = 0; i < group_vec.size(); ++i) {
       for (size_t j = 0; j < group_vec.size(); ++j) {
         if (i == j) continue;
@@ -254,23 +253,19 @@ struct LieGroupCeresTests {
         }
       }
     }
-#endif
-#if 0
     for (size_t i = 0; i < group_vec.size(); ++i) {
       for (size_t j = 0; j < group_vec.size(); ++j) {
         passed &= testManifold(group_vec[i], group_vec[j]);
         processTestResult(passed);
       }
     }
-#endif
-#if 0
     int Ns[] = {20, 40, 80, 160};
     for (auto N : Ns) {
       std::cerr << "Averaging test: N = " << N;
       passed &= testAveraging(N, .5, .1);
       processTestResult(passed);
     }
-#endif
+    std::cerr << "Spline test: N = " << N;
     passed &= testSpline() != nullptr;
     processTestResult(passed);
     return passed;
@@ -282,6 +277,7 @@ struct LieGroupCeresTests {
     if (n_knots<0) {
         n_knots = 3 * group_vec.size() / 4;
     }
+    // Running Lie group spline approximation
     std::vector<LieGroupd> control_poses(n_knots,LieGroupd());
     std::shared_ptr<BasisSpline<LieGroupd>> spline(new BasisSpline<LieGroupd>(control_poses, -1.0, float(group_vec.size()+2)/(n_knots-1)));
     ceres::Problem problem;
@@ -299,8 +295,6 @@ struct LieGroupCeresTests {
         KnotsAndU ku = spline->knots_and_u(t);
         LieGroupd pred = spline->parent_T_spline(t);
         LieGroupd err = group_vec[i].inverse() * pred;
-        // std::cout << i << " : (" << iu.i << "," << iu.u << ") l(P) " << pred.log() << " l(A) " << group_vec[i].log() << std::endl; 
-        // std::cout << "l(E) " << err.log() << " ||l(E)|| " << squaredNorm(err.log()) << std::endl;
         initial_error += squaredNorm(err.log());
         ceres::CostFunction* cost;
         switch (ku.segment_case) {
@@ -365,14 +359,14 @@ struct LieGroupCeresTests {
     options.gradient_tolerance = 1e-2 * Sophus::Constants<double>::epsilon();
     options.function_tolerance = 1e-2 * Sophus::Constants<double>::epsilon();
     options.parameter_tolerance = 1e-2 * Sophus::Constants<double>::epsilon();
-    options.minimizer_progress_to_stdout = true;
+    options.minimizer_progress_to_stdout = false;
     options.max_num_iterations = 500;
 
 
 
     ceres::Solver::Summary summary;
     Solve(options, &problem, &summary);
-    std::cout << summary.FullReport() << "\n";
+    // std::cout << summary.FullReport() << "\n";
 
 
     // Computing final error in the estimates
@@ -381,8 +375,6 @@ struct LieGroupCeresTests {
         double t = i;
         LieGroupd pred = spline->parent_T_spline(t);
         LieGroupd err = group_vec[i].inverse() * pred;
-        // std::cout << i << " l(P) " << pred.log() << " l(A) " << group_vec[i].log() << std::endl; 
-        // std::cout << "l(E) " << err.log() << " ||l(E)|| " << squaredNorm(err.log()) << std::endl;
         final_error += squaredNorm(err.log());
     }
 

@@ -1,5 +1,4 @@
-#ifndef TEST_CERES_FLAGS_H
-#define TEST_CERES_FLAGS_H
+#pragma once
 
 
 #include "gflags/gflags.h"
@@ -34,4 +33,3 @@ DEFINE_string(ordering, "automatic", "Options are: automatic, user.");
 DEFINE_bool(nonmonotonic_steps, false, "Trust region algorithm can use"
         " nonmonotic steps.");
 
-#endif // TEST_CERES_FLAGS_H
