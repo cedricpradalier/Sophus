@@ -394,6 +394,15 @@ struct IndexAndU {
   double u;
 };
 
+struct KnotsAndU {
+  SegmentCase segment_case;
+  int idx_prev;
+  int idx_0;
+  int idx_1;
+  int idx_2;
+  double u;
+};
+
 template <class LieGroup_>
 class BasisSpline {
  public:
@@ -464,6 +473,22 @@ class BasisSpline {
     --index_and_u.i;
 
     return index_and_u;
+  }
+
+  KnotsAndU knots_and_u(double t) const {
+      KnotsAndU ku;
+      IndexAndU iu = index_and_u(t);
+      ku.u = iu.u;
+      ku.segment_case =
+          iu.i == 0 ? SegmentCase::first
+          : (iu.i == this->getNumSegments() - 1 ? SegmentCase::last
+                  : SegmentCase::normal);
+
+      ku.idx_prev = std::max(0, iu.i - 1);
+      ku.idx_0 = iu.i;
+      ku.idx_1 = std::min(iu.i + 1, int(this->parent_Ts_control_point().size()) - 1);
+      ku.idx_2 = std::min(iu.i + 2, int(this->parent_Ts_control_point().size()) - 1);
+      return ku;
   }
 
  private:
