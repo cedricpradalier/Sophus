@@ -1,6 +1,6 @@
 import os
 import re
-import shutil
+from pathlib import Path
 import subprocess
 import sys
 
@@ -16,6 +16,7 @@ PLAT_TO_CMAKE = {
     "win-arm32": "ARM",
     "win-arm64": "ARM64",
 }
+
 
 # A CMakeExtension needs a sourcedir instead of a file list.
 # The name must be the _single_ output extension from the CMake build.
@@ -43,7 +44,6 @@ class CMakeBuild(build_ext):
 
         cmake_args = [
             "-DBUILD_PYTHON_BINDINGS=ON",
-            "-DBUILD_SOPHUS_EXAMPLES=OFF",
             "-DBUILD_SOPHUS_TESTS=OFF",
         ]
         build_args = []
@@ -70,7 +70,6 @@ class CMakeBuild(build_ext):
                     pass
 
         else:
-
             # Single config generators are handled "normally"
             single_config = any(x in cmake_generator for x in {"NMake", "Ninja"})
 
@@ -109,22 +108,32 @@ class CMakeBuild(build_ext):
             os.makedirs(self.build_temp)
 
         if not os.path.exists(self.build_lib):
-                os.makedirs(self.build_lib)
+            os.makedirs(self.build_lib)
 
-        subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp)
+        subprocess.check_call(
+            ["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp
+        )
         subprocess.check_call(
             ["cmake", "--build", "."] + build_args, cwd=self.build_temp
         )
 
         # copy stubs files from sophus_pybind-stubs to lib folder to be installed
         subprocess.run(
-            f"cp sophus_pybind-stubs/*.pyi {self.build_lib}", shell=True, check=True,
+            f"cp sophus_pybind-stubs/*.pyi {self.build_lib}",
+            shell=True,
+            check=True,
         )
         subprocess.run(
-            f"cp sophus_pybind-stubs/*.typed {self.build_lib}",  shell=True, check=True,
+            f"cp sophus_pybind-stubs/*.typed {self.build_lib}",
+            shell=True,
+            check=True,
         )
         # copy .so file to lib
-        subprocess.run(f"cp {self.build_temp}/*.so {self.build_lib}/", shell=True, check=True,)
+        subprocess.run(
+            f"cp {self.build_temp}/*.so {self.build_lib}/",
+            shell=True,
+            check=True,
+        )
 
 
 def main():
@@ -132,7 +141,7 @@ def main():
     # logic and declaration, and simpler if you include description/version in a file.
     setup(
         name="sophus_pybind",
-        version="1.22.10",
+        version=Path("SOPHUS_VERSION").read_text(),
         description="Sophus python API",
         long_description="Python API for sophus library",
         url="https://github.com/strasdat/sophus",

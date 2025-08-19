@@ -2,7 +2,7 @@
 list(APPEND SEARCH_HEADERS ${EIGEN3_INCLUDE_DIR})
 
 # git clone https://ceres-solver.googlesource.com/ceres-solver
-find_package(Ceres 2.1.0 QUIET)
+find_package(Ceres 2)
 
 
 
@@ -28,9 +28,6 @@ if(Ceres_FOUND)
       test_ceres_sim2
       )
 
-  # foreach(test_src ${TEST_SOURCES})
-  #   add_test_ceres(${test_src} "local_parameterization")
-  # endforeach()
   foreach(test_src ${TEST_SOURCES})
     add_test_ceres(${test_src} "manifold")
   endforeach()

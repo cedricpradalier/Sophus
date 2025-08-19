@@ -1,4 +1,4 @@
-name: Build and Test
+name: Pybind tests
 
 on:
   push:
@@ -12,7 +12,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-10.15]
+        os: [ubuntu-22.04, macos-13]
+      fail-fast: false
+
     steps:
       - name : Checkout
         uses: actions/checkout@v2
@@ -31,7 +33,7 @@ jobs:
               sudo apt install -y libunwind-dev
 
               # Generic dependencies
-              sudo apt-get install cmake
+              sudo apt-get install cmake libeigen3-dev libfmt-dev
 
               # Clean APT cache
               sudo apt-get clean
@@ -40,7 +42,7 @@ jobs:
               # Install system deps with Homebrew
               brew install cmake
               # VRS dependencies
-              brew install fmt lz4 zstd xxhash
+              brew install eigen fmt lz4 zstd xxhash
           else
               echo "$RUNNER_OS not supported"
               exit 1

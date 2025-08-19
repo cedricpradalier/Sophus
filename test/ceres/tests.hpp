@@ -109,7 +109,7 @@ struct LieGroupCeresTests {
       using Mapper = Mapper<typename LieGroup<T>::Tangent>;
       typename Mapper::Map residuals = Mapper::map(sResiduals);
 
-      // We are able to mix Sophus types with doubles and Jet types withou
+      // We are able to mix Sophus types with doubles and Jet types without
       // needing to cast to T.
       residuals = (T_aw * T_wa).log();
       // Reverse order of multiplication. This forces the compiler to verify
@@ -238,21 +238,6 @@ struct LieGroupCeresTests {
 
   bool testAll() {
     bool passed = true;
-    for (size_t i = 0; i < group_vec.size(); ++i) {
-      for (size_t j = 0; j < group_vec.size(); ++j) {
-        if (i == j) continue;
-        for (size_t k = 0; k < point_vec.size(); ++k) {
-          for (size_t l = 0; l < point_vec.size(); ++l) {
-            if (k == l) continue;
-            std::cerr << "Simple test #" << i << ", " << j << ", " << k << ", "
-                      << l;
-            passed &=
-                test(group_vec[i], group_vec[j], point_vec[k], point_vec[l]);
-            processTestResult(passed);
-          }
-        }
-      }
-    }
     for (size_t i = 0; i < group_vec.size(); ++i) {
       for (size_t j = 0; j < group_vec.size(); ++j) {
         passed &= testManifold(group_vec[i], group_vec[j]);
