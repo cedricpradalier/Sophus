@@ -417,7 +417,7 @@ namespace Sophus {
                         std::shared_ptr<ErrorFunctor> functor, ceres::LossFunction * loss_function = nullptr) {
                     using Wrapper = SplineErrorWrapper2<ErrorFunctor,num_residuals>;
                     KnotsAndU ku = spline->knots_and_u(t);
-                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, soph);
+                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, functor);
                     ceres::CostFunction *cost_function = NULL;
                     switch (ku.segment_case) {
                         case Sophus::SegmentCase::first:
@@ -461,7 +461,7 @@ namespace Sophus {
                         std::shared_ptr<ErrorFunctor> functor, ceres::LossFunction * loss_function = nullptr) {
                     using Wrapper = SplineErrorWrapper1<ErrorFunctor,num_residuals>;
                     KnotsAndU ku = spline->knots_and_u(t);
-                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, soph);
+                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, functor);
                     ceres::CostFunction *cost_function = NULL;
                     switch (ku.segment_case) {
                         case Sophus::SegmentCase::first:
@@ -567,7 +567,7 @@ namespace Sophus {
                         std::shared_ptr<ErrorFunctor> functor, ceres::LossFunction * loss_function = nullptr) {
                     using Wrapper = SplineErrorWrapper0<ErrorFunctor,num_residuals>;
                     KnotsAndU ku = spline->knots_and_u(t);
-                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, soph);
+                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, functor);
                     ceres::CostFunction *cost_function = NULL;
                     switch (ku.segment_case) {
                         case Sophus::SegmentCase::first:
@@ -612,7 +612,7 @@ namespace Sophus {
                     KnotsAndU ku1 = spline->knots_and_u(t1);
                     KnotsAndU ku2 = spline->knots_and_u(t2);
                     Wrapper * ew = new Wrapper(derivative_order, 
-                            ku1.segment_case,ku1.u, ku2.segment_case,ku2.u, delta_t, soph);
+                            ku1.segment_case,ku1.u, ku2.segment_case,ku2.u, delta_t, functor);
                     ceres::CostFunction *cost_function = NULL;
                     if ((ku1.segment_case==Sophus::SegmentCase::first) && (ku2.segment_case==Sophus::SegmentCase::first)) {
                         cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
