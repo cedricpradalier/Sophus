@@ -10,6 +10,17 @@ namespace Sophus {
 
     template <typename Scalar_,template <typename, int = 0> class LieGroup_>
         struct SplineErrorSupport {
+            typedef enum {
+                SPLINE_P0=0,
+                SPLINE_P1=1,
+                SPLINE_P2=2,
+                SPLINE_P3=3,
+                SPLINE_Q0=4,
+                SPLINE_Q1=5,
+                SPLINE_Q2=6,
+                SPLINE_Q3=7,
+            } SplineParameterId;
+
             template <typename T>
                 using LieGroup = LieGroup_<T>;
             using LieGroupd = LieGroup<Scalar_>;
@@ -21,44 +32,47 @@ namespace Sophus {
                     static int constexpr num_residuals = num_residuals_;
                     // using SplineErrorWrapper<ErrorFunctor>::call;
                     SplineErrorWrapper0(Sophus::SegmentCase scase, double u, 
-                            std::shared_ptr<ErrorFunctor> soph) : 
-                        segment_case(scase), derivative_order(0), u(u), delta_t(0.0), soph(soph) {
+                            std::shared_ptr<ErrorFunctor> soph, const std::vector<unsigned char> & pmap) : 
+                        pmap(pmap), segment_case(scase), derivative_order(0), u(u), delta_t(0.0), soph(soph) {
                         }
 
                     SplineErrorWrapper0(unsigned int derivative_order, Sophus::SegmentCase scase, double u, double delta_t, 
-                            std::shared_ptr<ErrorFunctor> soph) : 
-                        segment_case(scase), derivative_order(derivative_order), u(u), delta_t(delta_t), soph(soph) {
+                            std::shared_ptr<ErrorFunctor> soph, const std::vector<unsigned char> & pmap) : 
+                        pmap(pmap), segment_case(scase), derivative_order(derivative_order), u(u), delta_t(delta_t), soph(soph) {
                         }
 
-
-                    template <typename T>
-                        bool operator()(const T* P0, const T* P1, const T* P2, const T* P3,
-                                T* residuals) const {
-                            switch (this->segment_case) {
-                                case Sophus::SegmentCase::normal:
-                                    return this->template call<T, T>(P0,P1,P2,P3,residuals);
-                                case Sophus::SegmentCase::first:
-                                case Sophus::SegmentCase::last:
-                                    assert(this->segment_case == Sophus::SegmentCase::normal);
-                                    return false;
-                            }
-                            return false;
+                    void check_map(unsigned char maxval) const {
+                        for (auto x : this->pmap) {
+                            SOPHUS_ENSURE(x <= maxval, "but %", x);
                         }
+                    }
 
                     template <typename T>
                         bool operator()(const T* P0, const T* P1, const T* P2, 
                                 T* residuals) const {
-                            switch (this->segment_case) {
-                                case Sophus::SegmentCase::first:
-                                    return this->template call<T,T>(P0,P0,P1,P2,residuals);
-                                case Sophus::SegmentCase::last:
-                                    return this->template call<T,T>(P0,P1,P2,P2,residuals);
-                                case Sophus::SegmentCase::normal:
-                                    assert(this->segment_case != Sophus::SegmentCase::normal);
-                                    return false;
-                            }
-                            return false;
+                            const T * P[] = {P0,P1,P2};
+                            //alias
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            this->check_map(3);
+                            return this->template call<T, T>(P[pmap[SPLINE_P0]],
+                                    P[pmap[SPLINE_P1]],
+                                    P[pmap[SPLINE_P2]],
+                                    P[pmap[SPLINE_P3]],residuals);
                         }
+
+                    template <typename T>
+                        bool operator()(const T* P0, const T* P1, const T* P2, const T* P3, 
+                                T* residuals) const {
+                            const T * P[] = {P0,P1,P2,P3};
+                            //alias
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            this->check_map(4);
+                            return this->template call<T, T>(P[pmap[SPLINE_P0]],
+                                    P[pmap[SPLINE_P1]],
+                                    P[pmap[SPLINE_P2]],
+                                    P[pmap[SPLINE_P3]],residuals);
+                        }
+
 
                     template <typename T2, typename T>
                         bool call(const T2* const P0, const T2* const P1, const T2* const P2, const T2* const P3, 
@@ -92,6 +106,7 @@ namespace Sophus {
                             return false;
                         }
 
+                    std::vector<unsigned char> pmap;
                     Sophus::SegmentCase segment_case;
                     unsigned int derivative_order;
                     double u, delta_t;
@@ -104,8 +119,9 @@ namespace Sophus {
                     static int constexpr num_residuals = num_residuals_;
                     // using SplineErrorWrapper<ErrorFunctor>::call;
                     SplineError2PointsWrapper0(Sophus::SegmentCase scase1, double u1, Sophus::SegmentCase scase2, double u2, 
-                            std::shared_ptr<ErrorFunctor> soph) : 
-                        segment_case1(scase1),segment_case2(scase2), 
+                            std::shared_ptr<ErrorFunctor> soph,
+                            const std::vector<unsigned char> & pmap) : 
+                        pmap(pmap),segment_case1(scase1),segment_case2(scase2), 
                         derivative_order(0), u1(u1), u2(u2), delta_t(0.0), soph(soph) {
                         }
 
@@ -113,85 +129,84 @@ namespace Sophus {
                             Sophus::SegmentCase scase1, double u1, 
                             Sophus::SegmentCase scase2, double u2, 
                             double delta_t, 
-                            std::shared_ptr<ErrorFunctor> soph) : 
-                        segment_case1(scase1), segment_case2(scase2), 
+                            std::shared_ptr<ErrorFunctor> soph,
+                            const std::vector<unsigned char> & pmap) : 
+                        pmap(pmap), segment_case1(scase1), segment_case2(scase2), 
                         derivative_order(derivative_order), u1(u1), u2(u2), delta_t(delta_t), soph(soph) {
                         }
 
+                    void check_map(unsigned char maxval) const {
+                        for (auto x : pmap) {
+                            SOPHUS_ENSURE(x <= maxval, "but %", x);
+                        }
+                    }
+
+                    template <typename T>
+                        bool operator()(const T* P0, const T* P1, const T* P2, 
+                                T* residuals) const {
+                            const T * P[] = {P0,P1,P2};
+                            this->check_map(3);
+                            //alias
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            return this->template call<T, T, T>(P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],
+                                    P[pmap[SPLINE_Q0]],P[pmap[SPLINE_Q1]],P[pmap[SPLINE_Q2]],P[pmap[SPLINE_Q3]],residuals);
+                        }
 
                     template <typename T>
                         bool operator()(const T* P0, const T* P1, const T* P2, const T* P3,
-                                const T* Q0, const T* Q1, const T* Q2, const T* Q3,
                                 T* residuals) const {
-                            if ((this->segment_case1==Sophus::SegmentCase::normal) && (this->segment_case2==Sophus::SegmentCase::normal)) {
-                                return this->template call<T, T>(P0,P1,P2,P3, Q0,Q1,Q2,Q3, residuals);
-                            } else {
-                                assert(this->segment_case1==Sophus::SegmentCase::normal);
-                                assert(this->segment_case2==Sophus::SegmentCase::normal);
-                                return false;
-                            }
-                            return false;
+                            const T * P[] = {P0,P1,P2,P3};
+                            this->check_map(4);
+                            //alias
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            return this->template call<T, T, T>(P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],
+                                    P[pmap[SPLINE_Q0]],P[pmap[SPLINE_Q1]],P[pmap[SPLINE_Q2]],P[pmap[SPLINE_Q3]],residuals);
                         }
 
                     template <typename T>
-                        bool operator()(const T* P0, const T* P1, const T* P2, 
-                                const T* P3, const T* P4, const T* P5, const T* P6,
+                        bool operator()(const T* P0, const T* P1, const T* P2, const T* P3, const T* P4,
                                 T* residuals) const {
-                            if ((this->segment_case1==Sophus::SegmentCase::normal) && (this->segment_case2==Sophus::SegmentCase::normal)) {
-                                // One segment must not be normal, but only one
-                                assert((this->segment_case1 != Sophus::SegmentCase::normal) 
-                                        ^ (this->segment_case2 != Sophus::SegmentCase::normal));
-                                return false;
-                            } else if ((this->segment_case1==Sophus::SegmentCase::normal) && (this->segment_case2==Sophus::SegmentCase::first)) {
-                                return this->template call<T,T>(P0,P1,P2,P3,
-                                        P4,P4,P5,P6, residuals);
-                            } else if ((this->segment_case1==Sophus::SegmentCase::normal) && (this->segment_case2==Sophus::SegmentCase::last)) {
-                                return this->template call<T,T>(P0,P1,P2,P3,
-                                        P4,P5,P6,P6, residuals);
-                            } else if ((this->segment_case1==Sophus::SegmentCase::first) && (this->segment_case2==Sophus::SegmentCase::normal)) {
-                                return this->template call<T,T>(P0,P0,P1,P2,
-                                        P3,P4,P5,P6, residuals);
-                            } else if ((this->segment_case1==Sophus::SegmentCase::last) && (this->segment_case2==Sophus::SegmentCase::normal)) {
-                                return this->template call<T,T>(P0,P1,P2,P2,
-                                        P3,P4,P5,P6, residuals);
-                            } else {
-                                // One segment must not be normal, but only one
-                                assert((this->segment_case1 != Sophus::SegmentCase::normal) 
-                                        ^ (this->segment_case2 != Sophus::SegmentCase::normal));
-                                return false;
-                            }
-                            return false;
+                            const T * P[] = {P0,P1,P2,P3,P4};
+                            this->check_map(5);
+                            //alias
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            return this->template call<T, T, T>(P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],
+                                    P[pmap[SPLINE_Q0]],P[pmap[SPLINE_Q1]],P[pmap[SPLINE_Q2]],P[pmap[SPLINE_Q3]],residuals);
                         }
 
                     template <typename T>
-                        bool operator()(const T* P0, const T* P1, const T* P2, 
-                                const T* P3, const T* P4, const T* P5, 
+                        bool operator()(const T* P0, const T* P1, const T* P2, const T* P3, const T* P4, const T* P5,
                                 T* residuals) const {
-                            if ((this->segment_case1==Sophus::SegmentCase::normal) && (this->segment_case2==Sophus::SegmentCase::normal)) {
-                                // Both segments must be extremes
-                                assert((this->segment_case1 != Sophus::SegmentCase::normal) 
-                                        && (this->segment_case2 != Sophus::SegmentCase::normal));
-                                return false;
-                            } else if ((this->segment_case1==Sophus::SegmentCase::first) && (this->segment_case2==Sophus::SegmentCase::first)) {
-                                return this->template call<T,T>(P0,P0,P1,P2,
-                                        P3,P3,P4,P5, residuals);
-                            } else if ((this->segment_case1==Sophus::SegmentCase::first) && (this->segment_case2==Sophus::SegmentCase::last)) {
-                                return this->template call<T,T>(P0,P0,P1,P2,
-                                        P3,P4,P5,P5, residuals);
-                            } else if ((this->segment_case1==Sophus::SegmentCase::last) && (this->segment_case2==Sophus::SegmentCase::first)) {
-                                return this->template call<T,T>(P0,P1,P2,P2,
-                                        P3,P3,P4,P5, residuals);
-                            } else if ((this->segment_case1==Sophus::SegmentCase::last) && (this->segment_case2==Sophus::SegmentCase::last)) {
-                                return this->template call<T,T>(P0,P1,P2,P2,
-                                        P3,P4,P5,P5, residuals);
-                            } else {
-                                // Both segments must be extremes
-                                assert((this->segment_case1 != Sophus::SegmentCase::normal) 
-                                        && (this->segment_case2 != Sophus::SegmentCase::normal));
-                                return false;
-                            }
-                            return false;
+                            const T * P[] = {P0,P1,P2,P3,P4,P5};
+                            this->check_map(6);
+                            //alias
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            return this->template call<T, T, T>(P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],
+                                    P[pmap[SPLINE_Q0]],P[pmap[SPLINE_Q1]],P[pmap[SPLINE_Q2]],P[pmap[SPLINE_Q3]],residuals);
                         }
+
+                    template <typename T>
+                        bool operator()(const T* P0, const T* P1, const T* P2, const T* P3, const T* P4, const T* P5, const T* P6,
+                                T* residuals) const {
+                            const T * P[] = {P0,P1,P2,P3,P4,P5,P6};
+                            this->check_map(7);
+                            //alias
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            return this->template call<T, T, T>(P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],
+                                    P[pmap[SPLINE_Q0]],P[pmap[SPLINE_Q1]],P[pmap[SPLINE_Q2]],P[pmap[SPLINE_Q3]],residuals);
+                        }
+
+                    template <typename T>
+                        bool operator()(const T* P0, const T* P1, const T* P2, const T* P3, const T* P4, const T* P5, const T* P6, const T* P7,
+                                T* residuals) const {
+                            const T * P[] = {P0,P1,P2,P3,P4,P5,P6,P7};
+                            this->check_map(8);
+                            //alias
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            return this->template call<T, T, T>(P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],
+                                    P[pmap[SPLINE_Q0]],P[pmap[SPLINE_Q1]],P[pmap[SPLINE_Q2]],P[pmap[SPLINE_Q3]],residuals);
+                        }
+
 
                     template <typename T1, typename T2, typename T>
                         bool call(const T1* const P0, const T1* const P1, const T1* const P2, const T1* const P3, 
@@ -239,6 +254,7 @@ namespace Sophus {
                             return false;
                         }
 
+                    std::vector<unsigned char> pmap;
                     Sophus::SegmentCase segment_case1, segment_case2;
                     unsigned int derivative_order;
                     double u1, u2, delta_t;
@@ -248,43 +264,35 @@ namespace Sophus {
 
             template <class ErrorFunctor,int num_residuals_> 
                 struct SplineErrorWrapper1 : public SplineErrorWrapper0<ErrorFunctor,num_residuals_> {
-                    SplineErrorWrapper1(Sophus::SegmentCase scase, double u, std::shared_ptr<ErrorFunctor> soph) : 
-                        SplineErrorWrapper0<ErrorFunctor,num_residuals_>(scase,u,soph) {}
+                    SplineErrorWrapper1(Sophus::SegmentCase scase, double u, std::shared_ptr<ErrorFunctor> soph, const std::vector<unsigned char> & pmap) : 
+                        SplineErrorWrapper0<ErrorFunctor,num_residuals_>(scase,u,soph,pmap) {}
 
-                    SplineErrorWrapper1(unsigned int derivative_order, Sophus::SegmentCase scase, double u, double delta_t, std::shared_ptr<ErrorFunctor> soph) : 
-                        SplineErrorWrapper0<ErrorFunctor,num_residuals_>(derivative_order,scase,u,delta_t,soph) {}
+                    SplineErrorWrapper1(unsigned int derivative_order, Sophus::SegmentCase scase, double u, double delta_t, std::shared_ptr<ErrorFunctor> soph, const std::vector<unsigned char> & pmap) : 
+                        SplineErrorWrapper0<ErrorFunctor,num_residuals_>(derivative_order,scase,u,delta_t,soph,pmap) {}
 
-
-                    template <typename T>
-                        bool operator()(const T* const C0,
-                                const T* P0, const T* P1, const T* P2, const T* P3,
-                                T* residuals) const {
-                            switch (this->segment_case) {
-                                case Sophus::SegmentCase::normal:
-                                    return this->call<T,T,T>(C0,P0,P1,P2,P3,residuals);
-                                case Sophus::SegmentCase::first:
-                                case Sophus::SegmentCase::last:
-                                    assert(this->segment_case == Sophus::SegmentCase::normal);
-                                    return false;
-                            }
-                            return false;
-                        }
 
                     template <typename T>
                         bool operator()(const T* const C0,
                                 const T* P0, const T* P1, const T* P2, 
                                 T* residuals) const {
-                            switch (this->segment_case) {
-                                case Sophus::SegmentCase::first:
-                                    return this->call<T,T,T>(C0,P0,P0,P1,P2,residuals);
-                                case Sophus::SegmentCase::last:
-                                    return this->call<T,T,T>(C0,P0,P1,P2,P2,residuals);
-                                case Sophus::SegmentCase::normal:
-                                    assert(this->segment_case != Sophus::SegmentCase::normal);
-                                    return false;
-                            }
-                            return false;
+                            const T * P[] = {P0,P1,P2};
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            this->check_map(3);
+                            return this->template call<T, T, T>(C0, P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],
+                                    P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],residuals);
                         }
+
+                    template <typename T>
+                        bool operator()(const T* const C0,
+                                const T* P0, const T* P1, const T* P2, const T* P3,
+                                T* residuals) const {
+                            const T * P[] = {P0,P1,P2,P3};
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            this->check_map(4);
+                            return this->template call<T, T, T>(C0, P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],
+                                    P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],residuals);
+                        }
+
 
                     template <typename T1, typename T2, typename T>
                         bool call(const T1* const C0,
@@ -325,42 +333,34 @@ namespace Sophus {
             template <class ErrorFunctor,int num_residuals_> 
                 struct SplineErrorWrapper2 : public SplineErrorWrapper0<ErrorFunctor,num_residuals_> {
 
-                    SplineErrorWrapper2(Sophus::SegmentCase scase, double u, std::shared_ptr<ErrorFunctor> soph) : 
-                        SplineErrorWrapper0<ErrorFunctor,num_residuals_>(scase, u, soph) {}
+                    SplineErrorWrapper2(Sophus::SegmentCase scase, double u, std::shared_ptr<ErrorFunctor> soph, const std::vector<unsigned char> & pmap) : 
+                        SplineErrorWrapper0<ErrorFunctor,num_residuals_>(scase, u, soph,pmap) {}
 
-                    SplineErrorWrapper2(unsigned int derivative_order, Sophus::SegmentCase scase, double u, double delta_t, std::shared_ptr<ErrorFunctor> soph) : 
-                        SplineErrorWrapper0<ErrorFunctor,num_residuals_>(derivative_order, scase, u, delta_t, soph) {}
+                    SplineErrorWrapper2(unsigned int derivative_order, Sophus::SegmentCase scase, double u, double delta_t, std::shared_ptr<ErrorFunctor> soph, const std::vector<unsigned char> & pmap) : 
+                        SplineErrorWrapper0<ErrorFunctor,num_residuals_>(derivative_order, scase, u, delta_t, soph, pmap) {}
+
 
 
                     template <typename T>
-                        bool operator()(const T* const C0, const T* const C1,
-                                const T* P0, const T* P1, const T* P2, const T* P3,
+                        bool operator()(const T* const C0,const T* const C1,
+                                const T* P0, const T* P1, const T* P2, 
                                 T* residuals) const {
-                            switch (this->segment_case) {
-                                case Sophus::SegmentCase::normal:
-                                    return this->call<T,T,T>(C0,C1,P0,P1,P2,P3,residuals);
-                                case Sophus::SegmentCase::first:
-                                case Sophus::SegmentCase::last:
-                                    assert(this->segment_case == Sophus::SegmentCase::normal);
-                                    return false;
-                            }
-                            return false;
+                            const T * P[] = {P0,P1,P2};
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            this->check_map(3);
+                            return this->template call<T,T,T, T>(C0, C1, P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],
+                                    P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],residuals);
                         }
 
                     template <typename T>
-                        bool operator()(const T* const C0, const T* const C1,
-                                const T* P0, const T* P1, const T* P2, 
+                        bool operator()(const T* const C0,const T* const C1,
+                                const T* P0, const T* P1, const T* P2, const T* P3,
                                 T* residuals) const {
-                            switch (this->segment_case) {
-                                case Sophus::SegmentCase::first:
-                                    return this->call<T,T,T>(C0,C1,P0,P0,P1,P2,residuals);
-                                case Sophus::SegmentCase::last:
-                                    return this->call<T,T,T>(C0,C1,P0,P1,P2,P2,residuals);
-                                case Sophus::SegmentCase::normal:
-                                    assert(this->segment_case != Sophus::SegmentCase::normal);
-                                    return false;
-                            }
-                            return false;
+                            const T * P[] = {P0,P1,P2,P3};
+                            const std::vector<unsigned char> & pmap = this->pmap;
+                            this->check_map(4);
+                            return this->template call<T,T,T, T>(C0, C1, P[pmap[SPLINE_P0]],P[pmap[SPLINE_P1]],
+                                    P[pmap[SPLINE_P2]],P[pmap[SPLINE_P3]],residuals);
                         }
 
                     template <typename T1, typename T2, typename T>
@@ -417,40 +417,41 @@ namespace Sophus {
                         std::shared_ptr<ErrorFunctor> functor, ceres::LossFunction * loss_function = nullptr) {
                     using Wrapper = SplineErrorWrapper2<ErrorFunctor,num_residuals>;
                     KnotsAndU ku = spline->knots_and_u(t);
-                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, functor);
-                    ceres::CostFunction *cost_function = NULL;
-                    switch (ku.segment_case) {
-                        case Sophus::SegmentCase::first:
-                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper, Wrapper::num_residuals,
-                                          ParamClass1::num_parameters, ParamClass2::num_parameters,
-                                          num_parameters, num_parameters, num_parameters> (ew);
-                            problem.AddResidualBlock(cost_function, loss_function,par1.data(),par2.data(), 
-                                    spline->parent_Ts_control_point()[ku.idx_0].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_1].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_2].data());
-                            break;
-
-                        case Sophus::SegmentCase::normal:
-                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper, Wrapper::num_residuals, 
-                                          ParamClass1::num_parameters, ParamClass2::num_parameters,
-                                          num_parameters, num_parameters, 
-                                          num_parameters, num_parameters> (ew);
-                            problem.AddResidualBlock(cost_function, loss_function,par1.data(),par2.data(), 
-                                    spline->parent_Ts_control_point()[ku.idx_prev].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_0].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_1].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_2].data());
-                            break;
-                        case Sophus::SegmentCase::last:
-                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper, Wrapper::num_residuals, 
-                                          ParamClass1::num_parameters, ParamClass2::num_parameters,
-                                          num_parameters, num_parameters, num_parameters> (ew);
-                            problem.AddResidualBlock(cost_function, loss_function,par1.data(),par2.data(), 
-                                    spline->parent_Ts_control_point()[ku.idx_prev].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_0].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_1].data());
-                            break;
+                    std::vector<unsigned char> map(4,255);
+                    std::map<double *,std::vector<unsigned char>> pmap;
+                    pmap[spline->parent_Ts_control_point()[ku.idx_prev].data()].push_back(SPLINE_P0);
+                    pmap[spline->parent_Ts_control_point()[ku.idx_0].data()].push_back(SPLINE_P1);
+                    pmap[spline->parent_Ts_control_point()[ku.idx_1].data()].push_back(SPLINE_P2);
+                    pmap[spline->parent_Ts_control_point()[ku.idx_2].data()].push_back(SPLINE_P3);
+                    std::vector<double *> parameter_blocks;
+                    parameter_blocks.push_back(par1.data());
+                    parameter_blocks.push_back(par2.data()); 
+                    for (auto it : pmap) {
+                        for (unsigned char x : it.second) {
+                            map[x] = parameter_blocks.size()-2;
+                        }
+                        parameter_blocks.push_back(it.first);
                     }
+                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, functor,pmap);
+                    ceres::CostFunction *cost_function = NULL;
+                    switch (parameter_blocks.size()) {
+                        case 5:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          ParamClass1::num_parameters,ParamClass2::num_parameters,
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters> (ew);
+                            break;
+                        case 6:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          ParamClass1::num_parameters,ParamClass2::num_parameters,
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters> (ew);
+                            break;
+                        default:
+                            assert((parameter_blocks.size()>=5) && (parameter_blocks.size()<=6));
+                    }
+
+                    problem.AddResidualBlock(cost_function, loss_function, parameter_blocks);
                     return true;
                 }
 
@@ -461,39 +462,38 @@ namespace Sophus {
                         std::shared_ptr<ErrorFunctor> functor, ceres::LossFunction * loss_function = nullptr) {
                     using Wrapper = SplineErrorWrapper1<ErrorFunctor,num_residuals>;
                     KnotsAndU ku = spline->knots_and_u(t);
-                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, functor);
-                    ceres::CostFunction *cost_function = NULL;
-                    switch (ku.segment_case) {
-                        case Sophus::SegmentCase::first:
-                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                          Wrapper::num_residuals, ParamClass1::num_parameters,
-                                          num_parameters, num_parameters, num_parameters> (ew);
-                            problem.AddResidualBlock(cost_function, loss_function,par1.data(), 
-                                    spline->parent_Ts_control_point()[ku.idx_0].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_1].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_2].data());
-                            break;
-
-                        case Sophus::SegmentCase::normal:
-                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                          Wrapper::num_residuals, ParamClass1::num_parameters,
-                                          num_parameters, num_parameters, num_parameters, num_parameters> (ew);
-                            problem.AddResidualBlock(cost_function, loss_function,par1.data(), 
-                                    spline->parent_Ts_control_point()[ku.idx_prev].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_0].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_1].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_2].data());
-                            break;
-                        case Sophus::SegmentCase::last:
-                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                          Wrapper::num_residuals, ParamClass1::num_parameters,
-                                          num_parameters, num_parameters, num_parameters> (ew);
-                            problem.AddResidualBlock(cost_function, loss_function,par1.data(), 
-                                    spline->parent_Ts_control_point()[ku.idx_prev].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_0].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_1].data());
-                            break;
+                    std::vector<unsigned char> map(4,255);
+                    std::map<double *,std::vector<unsigned char>> pmap;
+                    pmap[spline->parent_Ts_control_point()[ku.idx_prev].data()].push_back(SPLINE_P0);
+                    pmap[spline->parent_Ts_control_point()[ku.idx_0].data()].push_back(SPLINE_P1);
+                    pmap[spline->parent_Ts_control_point()[ku.idx_1].data()].push_back(SPLINE_P2);
+                    pmap[spline->parent_Ts_control_point()[ku.idx_2].data()].push_back(SPLINE_P3);
+                    std::vector<double *> parameter_blocks;
+                    parameter_blocks.push_back(par1.data());
+                    for (auto it : pmap) {
+                        for (unsigned char x : it.second) {
+                            map[x] = parameter_blocks.size()-1;
+                        }
+                        parameter_blocks.push_back(it.first);
                     }
+                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, functor, map);
+                    ceres::CostFunction *cost_function = NULL;
+                    switch (parameter_blocks.size()) {
+                        case 4:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, ParamClass1::num_parameters,
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters> (ew);
+                            break;
+                        case 5:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, ParamClass1::num_parameters,
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters> (ew);
+                            break;
+                        default:
+                            assert((parameter_blocks.size()>=4) && (parameter_blocks.size()<=5));
+                    }
+
+                    problem.AddResidualBlock(cost_function, loss_function, parameter_blocks);
                     return true;
                 }
 
@@ -567,39 +567,37 @@ namespace Sophus {
                         std::shared_ptr<ErrorFunctor> functor, ceres::LossFunction * loss_function = nullptr) {
                     using Wrapper = SplineErrorWrapper0<ErrorFunctor,num_residuals>;
                     KnotsAndU ku = spline->knots_and_u(t);
-                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, functor);
-                    ceres::CostFunction *cost_function = NULL;
-                    switch (ku.segment_case) {
-                        case Sophus::SegmentCase::first:
-                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                          Wrapper::num_residuals, 
-                                          num_parameters, num_parameters, num_parameters> (ew);
-                            problem.AddResidualBlock(cost_function, loss_function,
-                                    spline->parent_Ts_control_point()[ku.idx_0].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_1].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_2].data());
-                            break;
-
-                        case Sophus::SegmentCase::normal:
-                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                          Wrapper::num_residuals, 
-                                          num_parameters, num_parameters, num_parameters, num_parameters> (ew);
-                            problem.AddResidualBlock(cost_function, loss_function,
-                                    spline->parent_Ts_control_point()[ku.idx_prev].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_0].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_1].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_2].data());
-                            break;
-                        case Sophus::SegmentCase::last:
-                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                          Wrapper::num_residuals, 
-                                          num_parameters, num_parameters, num_parameters> (ew);
-                            problem.AddResidualBlock(cost_function, loss_function,
-                                    spline->parent_Ts_control_point()[ku.idx_prev].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_0].data(),
-                                    spline->parent_Ts_control_point()[ku.idx_1].data());
-                            break;
+                    std::vector<unsigned char> map(4,255);
+                    std::map<double *,std::vector<unsigned char>> pmap;
+                    pmap[spline->parent_Ts_control_point()[ku.idx_prev].data()].push_back(SPLINE_P0);
+                    pmap[spline->parent_Ts_control_point()[ku.idx_0].data()].push_back(SPLINE_P1);
+                    pmap[spline->parent_Ts_control_point()[ku.idx_1].data()].push_back(SPLINE_P2);
+                    pmap[spline->parent_Ts_control_point()[ku.idx_2].data()].push_back(SPLINE_P3);
+                    std::vector<double *> parameter_blocks;
+                    for (auto it : pmap) {
+                        for (unsigned char x : it.second) {
+                            map[x] = parameter_blocks.size();
+                        }
+                        parameter_blocks.push_back(it.first);
                     }
+                    Wrapper * ew = new Wrapper(derivative_order, ku.segment_case,ku.u, delta_t, functor, map);
+                    ceres::CostFunction *cost_function = NULL;
+                    switch (parameter_blocks.size()) {
+                        case 3:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters> (ew);
+                            break;
+                        case 4:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters> (ew);
+                            break;
+                        default:
+                            assert((parameter_blocks.size()>=3) && (parameter_blocks.size()<=4));
+                    }
+
+                    problem.AddResidualBlock(cost_function, loss_function, parameter_blocks);
                     return true;
                 }
 
@@ -611,133 +609,66 @@ namespace Sophus {
                     using Wrapper = SplineError2PointsWrapper0<ErrorFunctor,num_residuals>;
                     KnotsAndU ku1 = spline->knots_and_u(t1);
                     KnotsAndU ku2 = spline->knots_and_u(t2);
-                    Wrapper * ew = new Wrapper(derivative_order, 
-                            ku1.segment_case,ku1.u, ku2.segment_case,ku2.u, delta_t, functor);
-                    ceres::CostFunction *cost_function = NULL;
-                    if ((ku1.segment_case==Sophus::SegmentCase::first) && (ku2.segment_case==Sophus::SegmentCase::first)) {
-                        cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                      Wrapper::num_residuals, 
-                                      num_parameters, num_parameters, num_parameters,
-                                      num_parameters, num_parameters, num_parameters> (ew);
-                        problem.AddResidualBlock(cost_function, loss_function,
-                                spline->parent_Ts_control_point()[ku1.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_2].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_2].data()
-                                );
-                    } else if ((ku1.segment_case==Sophus::SegmentCase::first) && (ku2.segment_case==Sophus::SegmentCase::normal)) {
-                        cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                      Wrapper::num_residuals, 
-                                      num_parameters, num_parameters, num_parameters,
-                                      num_parameters, num_parameters, num_parameters, num_parameters> (ew);
-                        problem.AddResidualBlock(cost_function, loss_function,
-                                spline->parent_Ts_control_point()[ku1.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_2].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_2].data()
-                                );
-                    } else if ((ku1.segment_case==Sophus::SegmentCase::first) && (ku2.segment_case==Sophus::SegmentCase::last)) {
-                        cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                      Wrapper::num_residuals, 
-                                      num_parameters, num_parameters, num_parameters,
-                                      num_parameters, num_parameters, num_parameters> (ew);
-                        problem.AddResidualBlock(cost_function, loss_function,
-                                spline->parent_Ts_control_point()[ku1.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_2].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_1].data()
-                                );
-                    } else if ((ku1.segment_case==Sophus::SegmentCase::normal) && (ku2.segment_case==Sophus::SegmentCase::first)) {
-                        cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                      Wrapper::num_residuals, 
-                                      num_parameters, num_parameters, num_parameters,
-                                      num_parameters, num_parameters, num_parameters, num_parameters> (ew);
-                        problem.AddResidualBlock(cost_function, loss_function,
-                                spline->parent_Ts_control_point()[ku1.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_2].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_1].data()
-                                );
-                    } else if ((ku1.segment_case==Sophus::SegmentCase::normal) && (ku2.segment_case==Sophus::SegmentCase::normal)) {
-                        cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                      Wrapper::num_residuals, 
-                                      num_parameters, num_parameters, num_parameters, num_parameters,
-                                      num_parameters, num_parameters, num_parameters, num_parameters> (ew);
-                        problem.AddResidualBlock(cost_function, loss_function,
-                                spline->parent_Ts_control_point()[ku1.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_2].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_2].data()
-                                );
-                    } else if ((ku1.segment_case==Sophus::SegmentCase::normal) && (ku2.segment_case==Sophus::SegmentCase::last)) {
-                        cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                      Wrapper::num_residuals, 
-                                      num_parameters, num_parameters, num_parameters,
-                                      num_parameters, num_parameters, num_parameters, num_parameters> (ew);
-                        problem.AddResidualBlock(cost_function, loss_function,
-                                spline->parent_Ts_control_point()[ku1.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_2].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_2].data()
-                                );
-                    } else if ((ku1.segment_case==Sophus::SegmentCase::last) && (ku2.segment_case==Sophus::SegmentCase::first)) {
-                        cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                      Wrapper::num_residuals, 
-                                      num_parameters, num_parameters, num_parameters,
-                                      num_parameters, num_parameters, num_parameters> (ew);
-                        problem.AddResidualBlock(cost_function, loss_function,
-                                spline->parent_Ts_control_point()[ku1.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_2].data()
-                                );
-                    } else if ((ku1.segment_case==Sophus::SegmentCase::last) && (ku2.segment_case==Sophus::SegmentCase::normal)) {
-                        cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                      Wrapper::num_residuals, 
-                                      num_parameters, num_parameters, num_parameters,
-                                      num_parameters, num_parameters, num_parameters, num_parameters> (ew);
-                        problem.AddResidualBlock(cost_function, loss_function,
-                                spline->parent_Ts_control_point()[ku1.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_2].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_2].data()
-                                );
-                    } else if ((ku1.segment_case==Sophus::SegmentCase::last) && (ku2.segment_case==Sophus::SegmentCase::last)) {
-                        cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
-                                      Wrapper::num_residuals, 
-                                      num_parameters, num_parameters, num_parameters,
-                                      num_parameters, num_parameters, num_parameters> (ew);
-                        problem.AddResidualBlock(cost_function, loss_function,
-                                spline->parent_Ts_control_point()[ku1.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku1.idx_1].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_prev].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_0].data(),
-                                spline->parent_Ts_control_point()[ku2.idx_1].data()
-                                );
+                    std::vector<unsigned char> map(8,255);
+                    std::map<double *,std::vector<unsigned char>> pmap;
+                    pmap[spline->parent_Ts_control_point()[ku1.idx_prev].data()].push_back(SPLINE_P0);
+                    pmap[spline->parent_Ts_control_point()[ku1.idx_0].data()].push_back(SPLINE_P1);
+                    pmap[spline->parent_Ts_control_point()[ku1.idx_1].data()].push_back(SPLINE_P2);
+                    pmap[spline->parent_Ts_control_point()[ku1.idx_2].data()].push_back(SPLINE_P3);
+                    pmap[spline->parent_Ts_control_point()[ku2.idx_prev].data()].push_back(SPLINE_Q0);
+                    pmap[spline->parent_Ts_control_point()[ku2.idx_0].data()].push_back(SPLINE_Q1);
+                    pmap[spline->parent_Ts_control_point()[ku2.idx_1].data()].push_back(SPLINE_Q2);
+                    pmap[spline->parent_Ts_control_point()[ku2.idx_2].data()].push_back(SPLINE_Q3);
+                    std::vector<double *> parameter_blocks;
+                    for (auto it : pmap) {
+                        for (unsigned char x : it.second) {
+                            map[x] = parameter_blocks.size();
+                        }
+                        parameter_blocks.push_back(it.first);
                     }
+                    Wrapper * ew = new Wrapper(derivative_order, 
+                            ku1.segment_case,ku1.u, ku2.segment_case,ku2.u, delta_t, functor, pmap);
+                    ceres::CostFunction *cost_function = NULL;
+                    switch (parameter_blocks.size()) {
+                        case 3:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters> (ew);
+                            break;
+                        case 4:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters> (ew);
+                            break;
+                        case 5:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters,
+                                          LieGroupd::num_parameters > (ew);
+                            break;
+                        case 6:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters,
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters > (ew);
+                            break;
+                        case 7:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters,
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters > (ew);
+                            break;
+                        case 8:
+                            cost_function =  new ceres::AutoDiffCostFunction<Wrapper,
+                                          num_residuals, 
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters,
+                                          LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters, LieGroupd::num_parameters > (ew);
+                            break;
+                        default:
+                            assert((parameter_blocks.size()>=3) && (parameter_blocks.size()<=8));
+                    }
+
+                    problem.AddResidualBlock(cost_function, loss_function, parameter_blocks);
 
                     return true;
                 }
